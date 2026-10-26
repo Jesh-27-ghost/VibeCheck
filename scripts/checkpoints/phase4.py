@@ -117,11 +117,86 @@ class Phase4Check:
 
     @classmethod
     def _check_live_remediation(cls) -> CheckResult:
-        return CheckResult(
-            name="Consolidated Repair Prompt Generator",
-            status=CheckStatus.NOT_IMPLEMENTED,
-            details="Remediation tests awaiting Phase 4 implementation.",
-        )
+        """Run live verification of the remediation module against actual findings."""
+        try:
+            from backend.scanners import run_scanners
+            from backend.remediation import generate_repair_prompt
+            from backend.scanners.masking import MASKED_TOKEN
+
+            vulnerable_sample = REPO_ROOT / "samples" / "vulnerable"
+            if not vulnerable_sample.exists():
+                return CheckResult(
+                    name="Consolidated Repair Prompt Generator",
+                    status=CheckStatus.NOT_IMPLEMENTED,
+                    details="samples/vulnerable/ not found; cannot run E2E remediation check.",
+                )
+
+            # Step 1: get real findings from scanner
+            scan_result = run_scanners(str(vulnerable_sample))
+            findings = scan_result.get("findings", [])
+
+            if not findings:
+                return CheckResult(
+                    name="Consolidated Repair Prompt Generator",
+                    status=CheckStatus.FAIL,
+                    details="Scanner returned no findings from vulnerable sample; cannot verify remediation.",
+                )
+
+            # Step 2: generate prompt from actual findings
+            prompt = generate_repair_prompt(
+                scan_id="phase4-check",
+                project_name="vulnerable-sample",
+                findings=findings,
+                coverage=scan_result.get("coverage"),
+                limitations=scan_result.get("limitations"),
+            )
+
+            # Verify prompt is a non-empty string
+            if not isinstance(prompt, str) or len(prompt) < 50:
+                return CheckResult(
+                    name="Consolidated Repair Prompt Generator",
+                    status=CheckStatus.FAIL,
+                    details=f"Prompt is too short or not a string: {repr(prompt[:100])}",
+                )
+
+            # Verify at least one finding ID is in the prompt
+            referenced = [f["id"] for f in findings if f["id"] in prompt]
+            if not referenced:
+                return CheckResult(
+                    name="Consolidated Repair Prompt Generator",
+                    status=CheckStatus.FAIL,
+                    details="No finding IDs found in repair prompt. Prompt may not reference actual findings.",
+                )
+
+            # Verify no planted raw secrets in prompt
+            raw_secrets = [
+                "sk-test-abc123xyz456verylongfakekey9876",
+                "super_secret_password_123",
+                "mypassword123",
+            ]
+            for secret in raw_secrets:
+                if secret in prompt:
+                    return CheckResult(
+                        name="Raw Secret Exclusion from AI Repair Prompt",
+                        status=CheckStatus.FAIL,
+                        details=f"Raw secret value found in repair prompt output!",
+                    )
+
+            return CheckResult(
+                name="Consolidated Repair Prompt Generator",
+                status=CheckStatus.PASS,
+                details=(
+                    f"Prompt generated from {len(findings)} actual finding(s). "
+                    f"{len(referenced)} finding ID(s) referenced. Secret masking verified."
+                ),
+            )
+
+        except Exception as exc:
+            return CheckResult(
+                name="Consolidated Repair Prompt Generator",
+                status=CheckStatus.FAIL,
+                details=f"Live remediation check raised exception: {exc}",
+            )
 
     @classmethod
     def _run_remediation_tests(cls, test_path: str) -> CheckResult:

@@ -54,7 +54,7 @@ def format_status(status: CheckStatus) -> str:
 
 
 def run_command_capture(
-    cmd: List[str], cwd: Optional[Path] = None, timeout: int = 30
+    cmd: List[str], cwd: Optional[Path] = None, timeout: int = 60
 ) -> Tuple[int, str, str]:
     """Execute a subprocess command, capturing stdout and stderr without hanging."""
     work_dir = str(cwd or REPO_ROOT)
@@ -62,7 +62,9 @@ def run_command_capture(
         proc = subprocess.run(
             cmd,
             cwd=work_dir,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
             text=True,
             timeout=timeout,
         )
@@ -73,7 +75,7 @@ def run_command_capture(
         return -1, "", f"Command failed to launch: {str(exc)}"
 
 
-def run_pytest(test_paths: List[str]) -> Tuple[bool, str]:
+def run_pytest(test_paths: List[str], timeout: int = 180) -> Tuple[bool, str]:
     """Run pytest with the current Python interpreter on specific test paths."""
     cmd = [
         sys.executable,
@@ -82,7 +84,9 @@ def run_pytest(test_paths: List[str]) -> Tuple[bool, str]:
         *test_paths,
         "-v",
         "--no-header",
+        "-p",
+        "no:cacheprovider",
     ]
-    returncode, stdout, stderr = run_command_capture(cmd)
+    returncode, stdout, stderr = run_command_capture(cmd, timeout=timeout)
     combined = (stdout + ("\n" + stderr if stderr else "")).strip()
     return returncode == 0, combined

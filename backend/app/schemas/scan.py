@@ -25,6 +25,22 @@ class ScanCoverage(BaseModel):
         default_factory=list,
         description="List of files skipped (e.g., binary, minified, or unsupported types)",
     )
+    completed: List[str] = Field(
+        default_factory=list,
+        description="Scanner check categories that completed successfully",
+    )
+    failed: List[str] = Field(
+        default_factory=list,
+        description="Scanner check categories that encountered errors",
+    )
+    skipped: List[str] = Field(
+        default_factory=list,
+        description="Scanner check categories that were skipped",
+    )
+    unsupported: List[str] = Field(
+        default_factory=list,
+        description="Check categories not supported by this scanner build",
+    )
 
     model_config = {"extra": "allow"}
 

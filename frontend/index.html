@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeCheck — AI Security Reviewer for Vibe-Coded Websites</title>
+  <meta name="description" content="Automated deterministic security review, secret masking, consolidated AI repair prompts, and verifiable rescan comparisons for vibe-coded applications.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Top App Navigation -->
+  <header class="app-header">
+    <div class="header-inner">
+      <a href="#" class="brand-wrapper">
+        <div class="brand-icon">🛡️</div>
+        <div>
+          <span class="brand-title">VibeCheck</span>
+          <span class="brand-badge">AI Security Reviewer</span>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <div id="backend-status" class="status-pill">
+          <span class="status-dot"></span>
+          <span id="backend-status-text">Connecting...</span>
+        </div>
+
+        <!-- 1-Click Quick Demo Actions -->
+        <button id="btn-quick-vuln" class="btn btn-demo" title="1-Click load deliberately vulnerable sample project">
+          ⚡ 1-Click Demo (Vulnerable)
+        </button>
+        <button id="btn-quick-rescan" class="btn btn-demo-green" title="1-Click rescan with corrected code (shows before/after comparison)" disabled>
+          🔄 1-Click Rescan (Corrected)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+    
+    <!-- Hero Header -->
+    <section class="hero-section">
+      <div class="hero-pill">⚡ Problem Statement CY-02 • 12h Hackathon MVP</div>
+      <h1 class="hero-title">Automated Security Review for Vibe-Coded Websites</h1>
+      <p class="hero-subtitle">
+        Upload your application code. Get deterministic vulnerability findings, 100% masked secret evidence, and an instant copyable AI prompt to repair all detected flaws.
+      </p>
+    </section>
+
+    <!-- Source Intake Card (ZIP Upload) -->
+    <section class="glass-panel upload-card" id="upload-panel">
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">📦</div>
+        <h2 class="dropzone-title">Drop your project ZIP archive here</h2>
+        <p class="dropzone-hint">or click to browse your local computer (Max 50MB, .zip archives)</p>
+        <input type="file" id="file-input" class="file-input" accept=".zip,application/zip,application/x-zip-compressed">
+        <button type="button" class="btn btn-primary" id="btn-select-file">Browse ZIP File</button>
+      </div>
+
+      <div class="intake-safeguards">
+        <div class="safeguard-item"><span>🔒</span> Safe Sandboxed Extraction</div>
+        <div class="safeguard-item"><span>🚫</span> Path Traversal Defenses</div>
+        <div class="safeguard-item"><span>🛑</span> Source Code Never Executed</div>
+        <div class="safeguard-item"><span>🎭</span> 100% Secret Redaction in Evidence</div>
+      </div>
+    </section>
+
+    <!-- Animated Scanning Stepper -->
+    <section class="glass-panel scan-progress-panel" id="progress-panel">
+      <div class="progress-header">
+        <h3 id="progress-title" style="font-size: 1.1rem; font-weight: 700;">Running Deterministic Security Review...</h3>
+        <span id="progress-spinner" style="font-size: 1.2rem;">⏳</span>
+      </div>
+      <div class="stepper-container">
+        <div class="step-card" id="step-1">
+          <strong>1. Intake Safety</strong>
+          <p style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem;">Path bounds & zip safety checks</p>
+        </div>
+        <div class="step-card" id="step-2">
+          <strong>2. Static Analysis</strong>
+          <p style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem;">Secret patterns & AST rules</p>
+        </div>
+        <div class="step-card" id="step-3">
+          <strong>3. Finding Synthesis</strong>
+          <p style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem;">Evidence redaction & enrichment</p>
+        </div>
+        <div class="step-card" id="step-4">
+          <strong>4. AI Repair Prompt</strong>
+          <p style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem;">Consolidated fix prompt</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <div class="results-container" id="results-container">
+      
+      <!-- Metrics Dashboard -->
+      <section class="metrics-grid">
+        <div class="glass-panel metric-card">
+          <span class="metric-label">Risk Level</span>
+          <span class="metric-value" id="metric-risk" style="color: var(--sev-critical);">HIGH RISK</span>
+          <span class="metric-sub" id="metric-scan-id">Scan ID: demo-001</span>
+        </div>
+
+        <div class="glass-panel metric-card">
+          <span class="metric-label">Total Findings</span>
+          <span class="metric-value" id="metric-findings-count">0</span>
+          <span class="metric-sub" id="metric-critical-count">0 critical, 0 high</span>
+        </div>
+
+        <div class="glass-panel metric-card">
+          <span class="metric-label">Files & Code Analyzed</span>
+          <span class="metric-value" id="metric-files-lines">0 / 0</span>
+          <span class="metric-sub">Files scanned / total lines</span>
+        </div>
+
+        <div class="glass-panel metric-card">
+          <span class="metric-label">Secret Masking Guard</span>
+          <span class="metric-value" style="color: var(--status-success);">100%</span>
+          <span class="metric-sub">Zero raw secrets exposed</span>
+        </div>
+      </section>
+
+      <!-- Coverage & Caveats Bar -->
+      <section class="glass-panel coverage-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="font-size: 0.95rem; font-weight: 700;">Evaluation Coverage & Scope Transparency</h3>
+          <span id="coverage-rules-count" style="font-size: 0.78rem; color: var(--text-muted);">Rules evaluated</span>
+        </div>
+        <div class="coverage-pills" id="coverage-pills">
+          <!-- Filled by JS -->
+        </div>
+        <div id="limitations-banner" style="font-size: 0.8rem; color: #94a3b8; background: rgba(0,0,0,0.25); padding: 0.75rem 1rem; border-radius: var(--radius-sm); border-left: 3px solid #6366f1;">
+          ⚠️ <strong>Honest Scope Caveat:</strong> Static analysis evaluates deterministic pattern rules. It is not formal proof of total application security.
+        </div>
+      </section>
+
+      <!-- Consolidated AI Repair Prompt -->
+      <section class="glass-panel prompt-panel" id="repair-prompt-section">
+        <div class="prompt-header">
+          <div>
+            <h3 style="font-size: 1.1rem; font-weight: 700;">Consolidated AI Repair Prompt</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">
+              Copy and paste this prompt directly into Cursor, Claude, ChatGPT, or Gemini to vibe-code the security fix safely.
+            </p>
+          </div>
+          <button id="btn-copy-prompt" class="btn btn-primary">
+            📋 Copy Prompt
+          </button>
+        </div>
+        <textarea id="repair-prompt-text" class="prompt-textarea" readonly spellcheck="false"></textarea>
+      </section>
+
+      <!-- Rescan Comparison Section (Phase 5) -->
+      <section class="glass-panel comparison-section" id="comparison-section" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <div class="hero-pill" style="margin-bottom: 0.5rem; background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.4);">
+              Phase 5: Rescan & Verification Comparison
+            </div>
+            <h3 style="font-size: 1.25rem; font-weight: 800;">Before vs. After Rescan Analysis</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+              Verifies whether detected vulnerabilities were genuinely resolved by re-evaluating deterministic checks against the corrected submission.
+            </p>
+          </div>
+          <div id="comparison-stats-badge" style="font-size: 1.1rem; font-weight: 800; color: var(--status-success); background: rgba(16, 185, 129, 0.12); padding: 0.5rem 1rem; border-radius: var(--radius-full); border: 1px solid var(--status-success-border);">
+            8 / 8 Resolved (100%)
+          </div>
+        </div>
+
+        <div class="comparison-grid">
+          <!-- Column 1: Resolved by Checks -->
+          <div class="comp-col resolved">
+            <div class="comp-col-header">
+              <span>🟢 Resolved by Checks</span>
+              <span id="count-resolved">0</span>
+            </div>
+            <div id="list-resolved" style="display: flex; flex-direction: column; gap: 0.6rem;"></div>
+          </div>
+
+          <!-- Column 2: Still Present -->
+          <div class="comp-col still-present">
+            <div class="comp-col-header">
+              <span>🔴 Still Present</span>
+              <span id="count-still-present">0</span>
+            </div>
+            <div id="list-still-present" style="display: flex; flex-direction: column; gap: 0.6rem;"></div>
+          </div>
+
+          <!-- Column 3: New Findings -->
+          <div class="comp-col new">
+            <div class="comp-col-header">
+              <span>🟡 New Findings</span>
+              <span id="count-new">0</span>
+            </div>
+            <div id="list-new" style="display: flex; flex-direction: column; gap: 0.6rem;"></div>
+          </div>
+
+          <!-- Column 4: Not Verified -->
+          <div class="comp-col not-verified">
+            <div class="comp-col-header">
+              <span>⚪ Not Verified (Honest Guard)</span>
+              <span id="count-not-verified">0</span>
+            </div>
+            <div id="list-not-verified" style="display: flex; flex-direction: column; gap: 0.6rem;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Findings Explorer -->
+      <section class="findings-section">
+        <div class="findings-header">
+          <div>
+            <h3 style="font-size: 1.25rem; font-weight: 800;">Detected Security Findings</h3>
+            <p style="font-size: 0.82rem; color: var(--text-muted);">Grounded evidence with masked credentials and actionable remediation steps</p>
+          </div>
+
+          <div class="filter-group" id="filter-group">
+            <button class="filter-btn active" data-filter="all">All (<span id="filter-all-count">0</span>)</button>
+            <button class="filter-btn" data-filter="critical">Critical</button>
+            <button class="filter-btn" data-filter="high">High</button>
+            <button class="filter-btn" data-filter="medium">Medium</button>
+            <button class="filter-btn" data-filter="exposed_secret">Secrets</button>
+            <button class="filter-btn" data-filter="injection">Injection</button>
+            <button class="filter-btn" data-filter="code_execution">Code Exec</button>
+          </div>
+        </div>
+
+        <div class="findings-list" id="findings-list">
+          <!-- Filled dynamically by JS -->
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- Toast Notification Feedback -->
+  <div class="toast" id="toast">Copied prompt to clipboard!</div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

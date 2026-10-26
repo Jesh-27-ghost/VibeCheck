@@ -1,0 +1,8 @@
+{
+  "name": "vulnerable-sample",
+  "version": "1.0.0",
+  "description": "Deliberately vulnerable sample for VibeCheck testing. DO NOT DEPLOY.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

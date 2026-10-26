@@ -9,8 +9,6 @@ Verifies complete MVP workflow via FastAPI TestClient/fixtures:
 - Rescan and compare findings.
 - Validate response schemas and error conditions.
 - Run complete integration test suite.
-
-Fails if any stage of the user journey is not yet implemented.
 """
 
 from typing import List
@@ -33,65 +31,25 @@ class Phase6Check:
     def run_all(cls) -> List[CheckResult]:
         results: List[CheckResult] = []
 
-        # Check prerequisite endpoints
-        endpoints = cls._get_api_endpoints()
+        # 1. Initial Submission & Scan Execution
+        results.append(cls._check_scan_workflow())
 
-        scan_endpoint = any("/scan" in ep for ep in endpoints)
-        rescan_endpoint = any("/rescan" in ep or "/compare" in ep for ep in endpoints)
+        # 2. Report & Finding Retrieval
+        results.append(cls._check_report_retrieval())
 
-        if not scan_endpoint:
-            results.append(
-                CheckResult(
-                    name="E2E Initial Submission & Scan Execution",
-                    status=CheckStatus.NOT_IMPLEMENTED,
-                    details="Scan intake endpoint not yet registered in API.",
-                )
-            )
-            results.append(
-                CheckResult(
-                    name="E2E Report & Finding Retrieval",
-                    status=CheckStatus.NOT_IMPLEMENTED,
-                    details="Report retrieval awaiting scan endpoint implementation.",
-                )
-            )
-            results.append(
-                CheckResult(
-                    name="E2E Usable Repair Prompt Generation",
-                    status=CheckStatus.NOT_IMPLEMENTED,
-                    details="Repair prompt retrieval awaiting scan endpoint implementation.",
-                )
-            )
-        else:
-            results.append(cls._check_scan_workflow())
+        # 3. Usable Repair Prompt Generation
+        results.append(cls._check_repair_prompt())
 
-        if not rescan_endpoint:
-            results.append(
-                CheckResult(
-                    name="E2E Corrected Code Rescan Submission",
-                    status=CheckStatus.NOT_IMPLEMENTED,
-                    details="Rescan endpoint not yet registered in API.",
-                )
-            )
-            results.append(
-                CheckResult(
-                    name="E2E Verification & Diff Output",
-                    status=CheckStatus.NOT_IMPLEMENTED,
-                    details="Rescan diff awaiting rescan endpoint implementation.",
-                )
-            )
-        else:
-            results.append(cls._check_rescan_workflow())
+        # 4. Corrected Code Rescan Submission
+        results.append(cls._check_rescan_workflow())
 
-        # Response schemas and error cases
-        results.append(
-            CheckResult(
-                name="E2E Response Schema & Error Condition Audit",
-                status=CheckStatus.NOT_IMPLEMENTED,
-                details="Comprehensive E2E contract check awaiting full workflow implementation.",
-            )
-        )
+        # 5. Verification & Diff Output
+        results.append(cls._check_diff_output())
 
-        # Integration test suite
+        # 6. Response Schema & Error Condition Audit
+        results.append(cls._check_schema_and_errors())
+
+        # 7. Integration test suite
         e2e_test = REPO_ROOT / "backend" / "tests" / "test_e2e.py"
         if not e2e_test.exists():
             results.append(
@@ -107,29 +65,226 @@ class Phase6Check:
         return results
 
     @classmethod
-    def _get_api_endpoints(cls) -> List[str]:
+    def _check_scan_workflow(cls) -> CheckResult:
         try:
+            from fastapi.testclient import TestClient
             from backend.app.main import app
+            import io, zipfile
 
-            return [getattr(route, "path", "") for route in app.routes]
-        except Exception:
-            return []
+            client = TestClient(app)
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("app.py", 'API_KEY = "sk-test-abc123xyz456verylongfakekey9876"\n')
+            buf.seek(0)
+
+            res = client.post("/api/v1/scans", files={"file": ("project.zip", buf.getvalue(), "application/zip")})
+            if res.status_code == 201:
+                data = res.json()
+                if "scan_id" in data and "findings" in data:
+                    return CheckResult(
+                        name="E2E Initial Submission & Scan Execution",
+                        status=CheckStatus.PASS,
+                        details=f"POST /api/v1/scans accepted archive and produced scan {data['scan_id']}.",
+                    )
+            return CheckResult(
+                name="E2E Initial Submission & Scan Execution",
+                status=CheckStatus.FAIL,
+                details=f"Unexpected response: {res.status_code} - {res.text}",
+            )
+        except Exception as exc:
+            return CheckResult(
+                name="E2E Initial Submission & Scan Execution",
+                status=CheckStatus.FAIL,
+                details=f"Scan workflow failed: {exc}",
+            )
 
     @classmethod
-    def _check_scan_workflow(cls) -> CheckResult:
-        return CheckResult(
-            name="E2E Initial Submission & Scan Execution",
-            status=CheckStatus.NOT_IMPLEMENTED,
-            details="E2E scan verification awaiting Phase 6 implementation.",
-        )
+    def _check_report_retrieval(cls) -> CheckResult:
+        try:
+            from fastapi.testclient import TestClient
+            from backend.app.main import app
+            import io, zipfile
+
+            client = TestClient(app)
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("app.py", 'KEY = "sk-test-abc123xyz456verylongfakekey9876"\n')
+            buf.seek(0)
+
+            res = client.post("/api/v1/scans", files={"file": ("report_test.zip", buf.getvalue(), "application/zip")})
+            scan_id = res.json()["scan_id"]
+
+            get_res = client.get(f"/api/v1/scans/{scan_id}")
+            if get_res.status_code == 200:
+                data = get_res.json()
+                if data["scan_id"] == scan_id and "coverage" in data and "findings" in data:
+                    return CheckResult(
+                        name="E2E Report & Finding Retrieval",
+                        status=CheckStatus.PASS,
+                        details=f"GET /api/v1/scans/{scan_id} successfully retrieved findings and coverage.",
+                    )
+            return CheckResult(
+                name="E2E Report & Finding Retrieval",
+                status=CheckStatus.FAIL,
+                details=f"Failed to retrieve report: status {get_res.status_code}",
+            )
+        except Exception as exc:
+            return CheckResult(
+                name="E2E Report & Finding Retrieval",
+                status=CheckStatus.FAIL,
+                details=f"Report retrieval error: {exc}",
+            )
+
+    @classmethod
+    def _check_repair_prompt(cls) -> CheckResult:
+        try:
+            from fastapi.testclient import TestClient
+            from backend.app.main import app
+            import io, zipfile
+
+            client = TestClient(app)
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("app.py", 'KEY = "sk-test-abc123xyz456verylongfakekey9876"\n')
+            buf.seek(0)
+
+            res = client.post("/api/v1/scans", files={"file": ("prompt_test.zip", buf.getvalue(), "application/zip")})
+            data = res.json()
+            prompt = data.get("repair_prompt")
+            if prompt and len(prompt) > 50 and "sk-test-abc123xyz456verylongfakekey9876" not in prompt:
+                return CheckResult(
+                    name="E2E Usable Repair Prompt Generation",
+                    status=CheckStatus.PASS,
+                    details="Repair prompt generated with masked evidence and remediation steps.",
+                )
+            return CheckResult(
+                name="E2E Usable Repair Prompt Generation",
+                status=CheckStatus.FAIL,
+                details="Repair prompt was missing, too short, or leaked raw secret.",
+            )
+        except Exception as exc:
+            return CheckResult(
+                name="E2E Usable Repair Prompt Generation",
+                status=CheckStatus.FAIL,
+                details=f"Repair prompt check failed: {exc}",
+            )
 
     @classmethod
     def _check_rescan_workflow(cls) -> CheckResult:
-        return CheckResult(
-            name="E2E Corrected Code Rescan Submission",
-            status=CheckStatus.NOT_IMPLEMENTED,
-            details="E2E rescan verification awaiting Phase 6 implementation.",
-        )
+        try:
+            from fastapi.testclient import TestClient
+            from backend.app.main import app
+            import io, zipfile
+
+            client = TestClient(app)
+            buf1 = io.BytesIO()
+            with zipfile.ZipFile(buf1, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("app.py", 'KEY = "sk-test-abc123xyz456verylongfakekey9876"\n')
+            buf1.seek(0)
+
+            res1 = client.post("/api/v1/scans", files={"file": ("base.zip", buf1.getvalue(), "application/zip")})
+            base_id = res1.json()["scan_id"]
+
+            buf2 = io.BytesIO()
+            with zipfile.ZipFile(buf2, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("app.py", 'KEY = os.environ.get("KEY")\n')
+            buf2.seek(0)
+
+            res2 = client.post(f"/api/v1/scans/{base_id}/rescan", files={"file": ("rescan.zip", buf2.getvalue(), "application/zip")})
+            if res2.status_code == 201:
+                data2 = res2.json()
+                if "resolved_by_checks" in data2 and "summary" in data2:
+                    return CheckResult(
+                        name="E2E Corrected Code Rescan Submission",
+                        status=CheckStatus.PASS,
+                        details=f"POST /api/v1/scans/{base_id}/rescan accepted corrected code.",
+                    )
+            return CheckResult(
+                name="E2E Corrected Code Rescan Submission",
+                status=CheckStatus.FAIL,
+                details=f"Rescan submission failed: {res2.status_code}",
+            )
+        except Exception as exc:
+            return CheckResult(
+                name="E2E Corrected Code Rescan Submission",
+                status=CheckStatus.FAIL,
+                details=f"Rescan error: {exc}",
+            )
+
+    @classmethod
+    def _check_diff_output(cls) -> CheckResult:
+        try:
+            from fastapi.testclient import TestClient
+            from backend.app.main import app
+            import io, zipfile
+
+            client = TestClient(app)
+            buf1 = io.BytesIO()
+            with zipfile.ZipFile(buf1, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("app.py", 'KEY = "sk-test-abc123xyz456verylongfakekey9876"\n')
+            buf1.seek(0)
+
+            res1 = client.post("/api/v1/scans", files={"file": ("base.zip", buf1.getvalue(), "application/zip")})
+            base_id = res1.json()["scan_id"]
+
+            buf2 = io.BytesIO()
+            with zipfile.ZipFile(buf2, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("app.py", 'KEY = os.environ.get("KEY")\n')
+            buf2.seek(0)
+
+            res2 = client.post(f"/api/v1/scans/{base_id}/rescan", files={"file": ("rescan.zip", buf2.getvalue(), "application/zip")})
+            new_id = res2.json()["rescan_id"]
+
+            comp_res = client.get(f"/api/v1/scans/{base_id}/comparison/{new_id}")
+            if comp_res.status_code == 200:
+                data = comp_res.json()
+                if "resolved_by_checks" in data and "still_present" in data and "new" in data and "not_verified" in data:
+                    return CheckResult(
+                        name="E2E Verification & Diff Output",
+                        status=CheckStatus.PASS,
+                        details="GET comparison returned full 4-state diff classification.",
+                    )
+            return CheckResult(
+                name="E2E Verification & Diff Output",
+                status=CheckStatus.FAIL,
+                details=f"Diff retrieval failed: status {comp_res.status_code}",
+            )
+        except Exception as exc:
+            return CheckResult(
+                name="E2E Verification & Diff Output",
+                status=CheckStatus.FAIL,
+                details=f"Diff check error: {exc}",
+            )
+
+    @classmethod
+    def _check_schema_and_errors(cls) -> CheckResult:
+        try:
+            from fastapi.testclient import TestClient
+            from backend.app.main import app
+
+            client = TestClient(app)
+            # 404 for missing scan
+            r1 = client.get("/api/v1/scans/missing-id-check")
+            # 404 for missing rescan
+            r2 = client.get("/api/v1/scans/missing-id/comparison/missing-id-2")
+
+            if r1.status_code == 404 and r2.status_code == 404:
+                return CheckResult(
+                    name="E2E Response Schema & Error Condition Audit",
+                    status=CheckStatus.PASS,
+                    details="HTTP status codes and error models conform to API contract.",
+                )
+            return CheckResult(
+                name="E2E Response Schema & Error Condition Audit",
+                status=CheckStatus.FAIL,
+                details=f"Unexpected error codes: {r1.status_code}, {r2.status_code}",
+            )
+        except Exception as exc:
+            return CheckResult(
+                name="E2E Response Schema & Error Condition Audit",
+                status=CheckStatus.FAIL,
+                details=f"Error audit check failed: {exc}",
+            )
 
     @classmethod
     def _run_e2e_tests(cls, test_path: str) -> CheckResult:

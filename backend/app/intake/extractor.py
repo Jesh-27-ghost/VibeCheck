@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import io
 from pathlib import Path
 import re
-from typing import BinaryIO, List, Optional, Set, Union
+from typing import BinaryIO, List, Optional, Set, Tuple, Union
 import zipfile
 
 from backend.app.intake.config import (
